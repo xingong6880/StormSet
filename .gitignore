@@ -1,0 +1,19 @@
+# 本地数据、预训练权重和运行结果
+/data/
+/checkpoints/
+/outputs/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Python 缓存和本地环境
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 本地凭证与系统文件
+.env
+.env.*
+.DS_Store
