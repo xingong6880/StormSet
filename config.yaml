@@ -1,7 +1,69 @@
-# 当前仅为配置说明，占位文件没有可运行的实验参数。
-# 后续只保留一份 SEVIR + CasCast 实验配置。
-# 需要填写：数据路径、固定划分清单、预训练权重路径和输出路径。
-# 需要填写：随机种子、输入输出帧数、批大小及训练参数。
-# 需要填写：随机采样步数、方差设置、训练和评估集合大小。
-# 需要填写：区域规则、事件阈值、持续时长、连通面积和评分权重。
-# 真实参数应由已复现的上游配置及预实验确定，不在此处猜测。
+# 工程检查配置：单 seed、单批、一次更新；不是论文训练预算。
+data:
+  root: data/sevir_event100
+  split: train
+  split_files:
+    train: data/reference/cascast/train.txt
+    val: data/reference/cascast/val.txt
+    test: data/reference/cascast/test.txt
+  height: 384
+  width: 384
+  normalization_scale: 255.0
+
+# 阈值使用原始 VIL 编码尺度；255 只作为原始观测的缺测编码。
+events:
+  version: event_v1
+  history_frames: 13
+  future_frames: 12
+  frame_interval_minutes: 5
+  tile_size: 64
+  threshold: 181
+  area_pixels: 64
+  consecutive_frames: 3
+  onset_horizon_frames: 6
+
+model:
+  upstream_root: data/reference/cascast/upstream
+  upstream_commit: 487a68b5ade9aa829fe7df2e8f6746b4d9acc233
+  # 来自该版本 models/latent_diffusion_model.py 的 SEVIR test_final。
+  latent_scale: 0.6786020398139954
+  checkpoints:
+    EarthFormer_xy:
+      path: checkpoints/cascast/earthformer.pth
+      sha256: 2eab19df843a1bc59cf4c2bc593461aa9d3202a365d4ce9fb58f18ce5638caa7
+    autoencoder_kl:
+      path: checkpoints/cascast/autoencoder.pth
+      sha256: fa7189c26d2c34a9e03b056d545c1ec17f59c1069a5a909f4fe19878bd26aa60
+    casformer:
+      path: checkpoints/cascast/casformer.pth
+      sha256: 0d9be3727dbf527f9f9852323f08be1330c5b2d1a216b86ad11909f02264fd42
+
+run:
+  device: cuda:0
+  seed: 0
+  batch_size: 1
+
+sampling:
+  steps: 20
+  members: 2
+  eta: 1.0
+  # 显式定义有噪声的末步输出；冻结对照与训练后模型必须使用相同设置。
+  terminal_std: 0.01
+
+objective:
+  event_weight: 1.0
+  field_weight: 1.0
+
+training:
+  max_updates: 1
+  learning_rate: 0.0000001
+  # RTX 3090 实测：4步首次可运行，Adam状态分配后OOM；3步可连续更新且本次略快于2步。
+  step_batch_size: 3
+  fused_adamw: true
+  output_dir: outputs/train_smoke
+  resume: null
+
+evaluation:
+  max_batches: 1
+  checkpoint: outputs/train_smoke/step_000001.pth
+  output_dir: outputs/evaluation_trained_smoke
